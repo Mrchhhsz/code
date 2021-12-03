@@ -1,0 +1,9 @@
+set(modules
+        helloacl.c
+        helloblock.c
+        hellocluster.c
+        hellodict.c
+        hellohook.c
+        hellotimer.c
+        hellotype.c
+        helloworld.c)

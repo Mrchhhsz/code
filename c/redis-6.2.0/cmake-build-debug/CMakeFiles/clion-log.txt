@@ -1,0 +1,5 @@
+D:\user\.CLion\system\cygwin_cmake\bin\cmake.exe -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /cygdrive/d/proc/app/redis-6.2.0
+Detected version: 1.0.0
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /cygdrive/d/proc/app/redis-6.2.0/cmake-build-debug

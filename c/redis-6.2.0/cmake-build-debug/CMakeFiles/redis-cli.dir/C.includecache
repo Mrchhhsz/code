@@ -1,0 +1,18 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/cygdrive/d/proc/app/redis-6.2.0/src/crcspeed.c
+crcspeed.h
+/cygdrive/d/proc/app/redis-6.2.0/src/crcspeed.h
+
+/cygdrive/d/proc/app/redis-6.2.0/src/crcspeed.h
+inttypes.h
+-
+stdio.h
+-
+

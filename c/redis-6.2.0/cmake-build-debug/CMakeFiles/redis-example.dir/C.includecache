@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/cygdrive/d/proc/app/redis-6.2.0/src/siphash.c
+assert.h
+-
+stdint.h
+-
+stdio.h
+-
+string.h
+-
+ctype.h
+-
+

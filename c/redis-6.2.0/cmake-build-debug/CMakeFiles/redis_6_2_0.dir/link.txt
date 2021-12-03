@@ -1,0 +1,1 @@
+/usr/bin/c++.exe -g  -Wl,--enable-auto-import @CMakeFiles/redis_6_2_0.dir/objects1.rsp  -o redis_6_2_0.exe -Wl,--out-implib,libredis_6_2_0.dll.a -Wl,--major-image-version,0,--minor-image-version,0 
