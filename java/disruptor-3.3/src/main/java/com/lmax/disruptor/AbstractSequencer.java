@@ -21,18 +21,46 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import com.lmax.disruptor.util.Util;
 
 /**
+ * 抽象序号生成器，作为单生产者和多生产者序列号生成器的超类，实现一些公共的功能（添加删除gatingSequence）
  * Base class for the various sequencer types (single/multi).  Provides
  * common functionality like the management of gating sequences (add/remove) and
  * ownership of the current cursor.
  */
 public abstract class AbstractSequencer implements Sequencer
 {
+    /**
+     * 原子方式更新追踪的Sequence
+     */
     private static final AtomicReferenceFieldUpdater<AbstractSequencer, Sequence[]> SEQUENCE_UPDATER =
         AtomicReferenceFieldUpdater.newUpdater(AbstractSequencer.class, Sequence[].class, "gatingSequences");
 
+    /**
+     * 序列生成器缓冲区大小（ringBuffer有效数据缓冲区大小）
+     */
     protected final int bufferSize;
+    /**
+     * 消费者的等待策略。
+     * SequenceBarrier由Sequencer创建，Barrier需要生产者的Sequence信息
+     */
     protected final WaitStrategy waitStrategy;
+    /**
+     * 生产者的序列，表示生产者的进度。
+     * 代码里面的带cursor的都表示生产者们的Sequence
+     *
+     * 消费者和生产者之间的交互是通过volatile变量的读写来保证的
+     * 消费者们观察生产者的进度，当看见生产者进度增大时，生产者这期间的操作对消费者来说都是可见的
+     * volatile的happens-before原则，生产者的进度变大（写volatile）先于消费者看见它变大
+     * 在多生产者情况下，只能看见空间分配操作，要确定哪些数据发布还需要额外保证
+     */
     protected final Sequence cursor = new Sequence(Sequencer.INITIAL_CURSOR_VALUE);
+    /**
+     * 序号生成器都必须和这些Sequence满足的约束；
+     * cursor-bufferSize <= Min(gatingSequence)
+     * 即所有的gatingSequence让出下一个插槽后，生成者才能获取该插槽
+     *
+     * 对于生产者来讲，他只需要关注消费链最末端的消费者的进度，
+     * gatingSequences就是所有消费链最末端的消费者们所拥有的Sequence
+     */
     protected volatile Sequence[] gatingSequences = new Sequence[0];
 
     /**
@@ -59,7 +87,7 @@ public abstract class AbstractSequencer implements Sequencer
 
     /**
      * @see Sequencer#getCursor()
-     * 获取当前游标
+     * 获取当前游标（生产者的生产进度，已发布的最大序号）
      */
     @Override
     public final long getCursor()
@@ -68,6 +96,7 @@ public abstract class AbstractSequencer implements Sequencer
     }
 
     /**
+     * 获取缓冲区大小
      * @see Sequencer#getBufferSize()
      */
     @Override
@@ -77,6 +106,7 @@ public abstract class AbstractSequencer implements Sequencer
     }
 
     /**
+     * 添加gatingSequence（末端消费者的消费进度）
      * @see Sequencer#addGatingSequences(Sequence...)
      */
     @Override
@@ -86,6 +116,7 @@ public abstract class AbstractSequencer implements Sequencer
     }
 
     /**
+     * 移除消费者的进度信息
      * @see Sequencer#removeGatingSequence(Sequence)
      */
     @Override
@@ -95,6 +126,7 @@ public abstract class AbstractSequencer implements Sequencer
     }
 
     /**
+     * 最末端的消费Sequence
      * @see Sequencer#getMinimumSequence()
      */
     @Override
@@ -104,6 +136,7 @@ public abstract class AbstractSequencer implements Sequencer
     }
 
     /**
+     * 创建屏障，协调生产者和消费者之间的进度
      * @see Sequencer#newBarrier(Sequence...)
      */
     @Override
@@ -113,6 +146,7 @@ public abstract class AbstractSequencer implements Sequencer
     }
 
     /**
+     * 创建一个事件轮询器
      * Creates an event poller for this sequence that will use the supplied data provider and
      * gating sequences.
      *

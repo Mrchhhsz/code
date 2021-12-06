@@ -16,6 +16,7 @@
 package com.lmax.disruptor;
 
 /**
+ * 事件传输对象，将数据传输到指定事件对象上
  * <p>Implementations translate (write) data representations into events claimed from the {@link RingBuffer}.</p>
  *
  * <p>When publishing to the RingBuffer, provide an EventTranslator. The RingBuffer will select the next available

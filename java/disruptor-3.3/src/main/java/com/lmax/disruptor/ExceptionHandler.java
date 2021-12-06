@@ -16,6 +16,8 @@
 package com.lmax.disruptor;
 
 /**
+ * 异常处理器，在处理事件发生异常是，将会回调到这里的方法。
+ * 最好为Disruptor设置一个你确定的异常处理器的，默认的处理器会导致EventProcessor退出执行。
  * Callback handler for uncaught exceptions in the event processing cycle of the {@link BatchEventProcessor}
  */
 public interface ExceptionHandler<T>

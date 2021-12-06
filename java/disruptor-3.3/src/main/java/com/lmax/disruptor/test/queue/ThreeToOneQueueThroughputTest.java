@@ -61,14 +61,20 @@ import java.util.concurrent.*;
  * Q1  - Queue 1
  * EP1 - EventProcessor 1
  *
+ * 三对一的MPSC队列
+ *
  * </pre>
  */
 public final class ThreeToOneQueueThroughputTest extends AbstractPerfTestQueue
 {
+    // 三个发布者
     private static final int NUM_PUBLISHERS = 3;
+    // 缓冲队列大小
     private static final int BUFFER_SIZE = 1024 * 64;
     private static final long ITERATIONS = 1000L * 1000L * 20L;
+    // 线程池
     private final ExecutorService executor = Executors.newFixedThreadPool(NUM_PUBLISHERS + 1, DaemonThreadFactory.INSTANCE);
+    // 线程栅栏 4
     private final CyclicBarrier cyclicBarrier = new CyclicBarrier(NUM_PUBLISHERS + 1);
 
     ///////////////////////////////////////////////////////////////////////////////////////////////

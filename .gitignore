@@ -29,3 +29,4 @@ local.properties
 **/.DS_Store
 
 **/target/
+**/cmake-build-debug/

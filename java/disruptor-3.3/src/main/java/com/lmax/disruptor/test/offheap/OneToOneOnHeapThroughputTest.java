@@ -13,23 +13,31 @@ import java.util.concurrent.locks.LockSupport;
 
 public class OneToOneOnHeapThroughputTest extends AbstractPerfTestDisruptor
 {
+    // 快大小
     private static final int BLOCK_SIZE = 256;
+    // 缓冲数组长度
     private static final int BUFFER_SIZE = 1024 * 1024;
+    // 数据量
     private static final long ITERATIONS = 1000 * 1000 * 10L;
 
+    // 线程池 一个线程
     private final Executor executor = Executors.newFixedThreadPool(1, DaemonThreadFactory.INSTANCE);
+    // 等待策略，使用Thread.yield
     private final WaitStrategy waitStrategy = new YieldingWaitStrategy();
+    // 初始化一个环形缓冲区
     private final RingBuffer<ByteBuffer> buffer =
         RingBuffer.createSingleProducer(BufferFactory.direct(BLOCK_SIZE), BUFFER_SIZE, waitStrategy);
     private final ByteBufferHandler handler = new ByteBufferHandler();
+    // 事件处理这
     private final BatchEventProcessor<ByteBuffer> processor =
         new BatchEventProcessor<ByteBuffer>(buffer, buffer.newBarrier(), handler);
 
     {
         buffer.addGatingSequences(processor.getSequence());
     }
-
+    // 随机数
     private final Random r = new Random(1);
+    // 字节数组
     private final byte[] data = new byte[BLOCK_SIZE];
 
     public OneToOneOnHeapThroughputTest()

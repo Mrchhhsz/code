@@ -2,12 +2,17 @@ package com.lmax.disruptor;
 
 /**
  * Experimental poll-based interface for the Disruptor.
+ * 事件轮询器
  */
 public class EventPoller<T>
 {
+    // todo 数据提供者
     private final DataProvider<T> dataProvider;
+    // todo 序号生成器
     private final Sequencer sequencer;
+    // todo 消费序号
     private final Sequence sequence;
+    // todo 依赖的序号，sequence必须小于gatingSequence
     private final Sequence gatingSequence;
 
     public interface Handler<T>
@@ -32,12 +37,20 @@ public class EventPoller<T>
         this.gatingSequence = gatingSequence;
     }
 
+    /**
+     * 使用{@link EventHandler}的子类来做事件通知
+     * @param eventHandler
+     * @return
+     * @throws Exception
+     */
     public PollState poll(final Handler<T> eventHandler) throws Exception
     {
+        // 获取当前消费的序列号
         final long currentSequence = sequence.get();
+        // 下一个位置'
         long nextSequence = currentSequence + 1;
         final long availableSequence = sequencer.getHighestPublishedSequence(nextSequence, gatingSequence.get());
-
+        // todo 如果需要分配的下一个序列号小于等于可用的序列号，则表示可以消费数据
         if (nextSequence <= availableSequence)
         {
             boolean processNextEvent;
@@ -47,6 +60,7 @@ public class EventPoller<T>
             {
                 do
                 {
+                    //
                     final T event = dataProvider.get(nextSequence);
                     processNextEvent = eventHandler.onEvent(event, nextSequence, nextSequence == availableSequence);
                     processedSequence = nextSequence;
