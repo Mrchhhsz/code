@@ -43,6 +43,7 @@ public final class SequenceGroup extends Sequence
     }
 
     /**
+     * 获取消费者组中最小消费序列号
      * Get the minimum sequence value for the group.
      *
      * @return the minimum sequence value for the group.
@@ -69,6 +70,7 @@ public final class SequenceGroup extends Sequence
     }
 
     /**
+     * 添加一个Sequence实例进序列组，使用自旋锁cas原子操作更新序列组，写时复制，线程安全
      * Add a {@link Sequence} into this aggregate.  This should only be used during
      * initialisation.  Use {@link SequenceGroup#addWhileRunning(Cursored, Sequence)}
      *
@@ -81,10 +83,14 @@ public final class SequenceGroup extends Sequence
         Sequence[] newSequences;
         do
         {
+            // todo 获取旧的序列组
             oldSequences = sequences;
             final int oldSize = oldSequences.length;
+            // todo 创建新的序列分组，在旧的容量上+1
             newSequences = new Sequence[oldSize + 1];
+            // todo 拷贝旧数组数据到新数组
             System.arraycopy(oldSequences, 0, newSequences, 0, oldSize);
+            // todo 添加新的Sequence实例
             newSequences[oldSize] = sequence;
         }
         while (!SEQUENCE_UPDATER.compareAndSet(this, oldSequences, newSequences));

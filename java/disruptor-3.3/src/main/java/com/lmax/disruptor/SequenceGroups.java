@@ -56,6 +56,14 @@ class SequenceGroups
         }
     }
 
+    /**
+     * 使用cas操作，移除数组中的一个对象
+     * @param holder
+     * @param sequenceUpdater
+     * @param sequence
+     * @param <T>
+     * @return
+     */
     static <T> boolean removeSequence(
         final T holder,
         final AtomicReferenceFieldUpdater<T, Sequence[]> sequenceUpdater,
@@ -67,18 +75,21 @@ class SequenceGroups
 
         do
         {
+            // todo 使用原子类，获取序列组中最新的数组内容
             oldSequences = sequenceUpdater.get(holder);
-
+            // todo 获取需要移除元素的数量
             numToRemove = countMatching(oldSequences, sequence);
 
+            // todo 如果没有要移除的元素，直接跳出cas循环，会返回false
             if (0 == numToRemove)
             {
                 break;
             }
-
+            // todo 初始化新数组
             final int oldSize = oldSequences.length;
             newSequences = new Sequence[oldSize - numToRemove];
 
+            // todo 将不匹配需要移除元素的元素添加到新数组中
             for (int i = 0, pos = 0; i < oldSize; i++)
             {
                 final Sequence testSequence = oldSequences[i];
@@ -88,11 +99,18 @@ class SequenceGroups
                 }
             }
         }
-        while (!sequenceUpdater.compareAndSet(holder, oldSequences, newSequences));
+        while (!sequenceUpdater.compareAndSet(holder, oldSequences, newSequences)); // todo 原子更新holder的sequence[]数组
 
         return numToRemove != 0;
     }
 
+    /**
+     * 计算values数组中有多少个toMatch元素，返回匹配到的个数
+     * @param values
+     * @param toMatch
+     * @param <T>
+     * @return
+     */
     private static <T> int countMatching(T[] values, final T toMatch)
     {
         int numToRemove = 0;

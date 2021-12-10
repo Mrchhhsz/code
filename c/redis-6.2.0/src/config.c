@@ -43,15 +43,16 @@ typedef struct configEnum {
     const int val;
 } configEnum;
 
+// 内存淘汰策略
 configEnum maxmemory_policy_enum[] = {
-    {"volatile-lru", MAXMEMORY_VOLATILE_LRU},
-    {"volatile-lfu", MAXMEMORY_VOLATILE_LFU},
-    {"volatile-random",MAXMEMORY_VOLATILE_RANDOM},
-    {"volatile-ttl",MAXMEMORY_VOLATILE_TTL},
-    {"allkeys-lru",MAXMEMORY_ALLKEYS_LRU},
-    {"allkeys-lfu",MAXMEMORY_ALLKEYS_LFU},
-    {"allkeys-random",MAXMEMORY_ALLKEYS_RANDOM},
-    {"noeviction",MAXMEMORY_NO_EVICTION},
+    {"volatile-lru", MAXMEMORY_VOLATILE_LRU}, // 设置了过期时间key lru
+    {"volatile-lfu", MAXMEMORY_VOLATILE_LFU}, // 设置了过期时间key lfu
+    {"volatile-random",MAXMEMORY_VOLATILE_RANDOM}, // 设置了过期时间key 随机
+    {"volatile-ttl",MAXMEMORY_VOLATILE_TTL}, // 设置了过期时间key 按ttl值越小越先淘汰
+    {"allkeys-lru",MAXMEMORY_ALLKEYS_LRU}, // 所有key lru
+    {"allkeys-lfu",MAXMEMORY_ALLKEYS_LFU}, // 所有key lfu
+    {"allkeys-random",MAXMEMORY_ALLKEYS_RANDOM}, // 所有key 随机
+    {"noeviction",MAXMEMORY_NO_EVICTION}, // 永不过期
     {NULL, 0}
 };
 

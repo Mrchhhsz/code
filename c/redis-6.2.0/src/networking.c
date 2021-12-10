@@ -3405,6 +3405,7 @@ void *IOThreadMain(void *myid) {
         /* Wait for start */
         // 这里的等待操作比较特殊，没有使用简单的sleep,避免sleep时间设置不当可能导致槽糕的性能
         // 但是也有个问题就是频繁loop可能一定程度上造成cpu占用较长
+        // 等待客户端连接到来
         for (int j = 0; j < 1000000; j++) {
             if (getIOPendingCount(id) != 0) break;
         }
@@ -3436,17 +3437,20 @@ void *IOThreadMain(void *myid) {
                 serverPanic("io_threads_op value is unknown");
             }
         }
+        // 执行完成IO操作后，将线程所持有的客户端列表清空
         listEmpty(io_threads_list[id]);
         setIOPendingCount(id, 0);
     }
 }
 
 /* Initialize the data structures needed for threaded I/O. */
+//初始化IO线程
 void initThreadedIO(void) {
     server.io_threads_active = 0; /* We start with threads not active. */
 
     /* Don't spawn any thread if the user selected a single thread:
      * we'll handle I/O directly from the main thread. */
+    // 如果io_threads_num为1，直接使用main线程处理IO
     if (server.io_threads_num == 1) return;
 
     if (server.io_threads_num > IO_THREADS_MAX_NUM) {
@@ -3459,13 +3463,16 @@ void initThreadedIO(void) {
     for (int i = 0; i < server.io_threads_num; i++) {
         /* Things we do for all the threads including the main thread. */
         io_threads_list[i] = listCreate();
+        // 0号线程是主线程，不做处理
         if (i == 0) continue; /* Thread 0 is the main thread. */
 
         /* Things we do only for the additional threads. */
         pthread_t tid;
         pthread_mutex_init(&io_threads_mutex[i],NULL);
+        // 每个线程等待客户端数量置0
         setIOPendingCount(i, 0);
         pthread_mutex_lock(&io_threads_mutex[i]); /* Thread will be stopped. */
+        // 创建线程，并注册回调函数为IOThreadMain
         if (pthread_create(&tid,NULL,IOThreadMain,(void*)(long)i) != 0) {
             serverLog(LL_WARNING,"Fatal: Can't initialize IO thread.");
             exit(1);
@@ -3531,7 +3538,12 @@ int stopThreadedIOIfNeeded(void) {
     }
 }
 
+/**
+ * 将IO请求分配给不同的线程处理
+ * @return
+ */
 int handleClientsWithPendingWritesUsingThreads(void) {
+    // 获取客户端数量
     int processed = listLength(server.clients_pending_write);
     if (processed == 0) return 0; /* Return ASAP if there are no clients. */
 
@@ -3555,11 +3567,12 @@ int handleClientsWithPendingWritesUsingThreads(void) {
 
         /* Remove clients from the list of pending writes since
          * they are going to be closed ASAP. */
+        // 客户端关闭ASAP
         if (c->flags & CLIENT_CLOSE_ASAP) {
             listDelNode(server.clients_pending_write, ln);
             continue;
         }
-
+        // 使用客户端索引对线程数取余的方式，将客户端放入对应线程的客户端列表的尾部
         int target_id = item_id % server.io_threads_num;
         listAddNodeTail(io_threads_list[target_id],c);
         item_id++;
@@ -3568,12 +3581,14 @@ int handleClientsWithPendingWritesUsingThreads(void) {
     /* Give the start condition to the waiting threads, by setting the
      * start condition atomic var. */
     io_threads_op = IO_THREADS_OP_WRITE;
+    // 重新设置线程中持有客户端数量
     for (int j = 1; j < server.io_threads_num; j++) {
         int count = listLength(io_threads_list[j]);
         setIOPendingCount(j, count);
     }
 
     /* Also use the main thread to process a slice of clients. */
+    // 对0号线程中客户端的处理，也就是主线程
     listRewind(io_threads_list[0],&li);
     while((ln = listNext(&li))) {
         client *c = listNodeValue(ln);

@@ -118,7 +118,9 @@ void aofChildWriteDiffData(aeEventLoop *el, int fd, void *privdata, int mask) {
     while(1) {
         ln = listFirst(server.aof_rewrite_buf_blocks);
         block = ln ? ln->value : NULL;
+        // 如果停止发送，和缓冲区没有数据
         if (server.aof_stop_sending_diff || !block) {
+            // 删除文件处理事件
             aeDeleteFileEvent(server.el,server.aof_pipe_write_data_to_child,
                               AE_WRITABLE);
             return;
@@ -1036,7 +1038,7 @@ fmterr: /* Format error. */
 }
 
 /* ----------------------------------------------------------------------------
- * AOF rewrite
+ * AOF rewrite 下面是写不同对象的逻辑
  * ------------------------------------------------------------------------- */
 
 /* Delegate writing an object to writing a bulk string or bulk long long.

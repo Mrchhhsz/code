@@ -28,13 +28,40 @@ abstract class RingBufferPad
 
 abstract class RingBufferFields<E> extends RingBufferPad
 {
+    /**
+     * 数组填充大小，避免数组的有效元素出现伪共享
+     */
     private static final int BUFFER_PAD;
+    /**
+     * 引用对象数组有效首地址偏移量
+     */
     private static final long REF_ARRAY_BASE;
+    /**
+     * 引用对象数组的单个元素的地址偏移量 （用位运算代替乘法）
+     */
     private static final int REF_ELEMENT_SHIFT;
     private static final Unsafe UNSAFE = Util.getUnsafe();
 
     static
     {
+        /**
+         * PS: Java对象引用大小是一个非常不确定的值
+         * 它可能是4个字节或者是8个字节，这个取决于你的JVM设置以及给了多少内存给JVM，针对32G以上的堆，它就总是8个字节，
+         * 但是针对小一点的堆就是4个字节除非你在JVM设置里关掉设置-XX:-UseCompressedOops。结果就是，
+         * 安全的方式获取对像引用的大小就是找到Object[]数组中一个元素的大小：unsafe.arrayIndexScale( Object[].class )，
+         * 针对这种情况，Unsafe.addressSize不实用。
+         *
+         * note:
+         * 1. jvm在内存小于4G的时候，会自动使用32位地址，去除高32位；
+         * 2. 在内存大于32G的时候，则会使用64位地址
+         * 3. 在4G到32G，开启指针压缩会只是用32位地址
+         * 开启指针压缩后，jvm中一个为什么可以只用32位可以存储32G的内存空间（2 的 （2 * 10 * 10 * 10）次方是4G）
+         * 在开启jvm的指针压缩之后，每个地址代表8个字节，这样后三位其实是无效的，都是0。在jvm中选择不要这3位，
+         * 这样就多出了3位即 2^(2 * 10 * 10 * 10) * 8字节，所以是32GB，在jvm内表现是32位，在实际寄存器中是35位
+         * 每个地址代表8字节是因为jvm对对象做了8字节对齐填充
+         *
+         * 获取指针是多少字节 即分为 4字节 4 * 8 bit位, 8字节，8 * 8bit位
+         */
         final int scale = UNSAFE.arrayIndexScale(Object[].class);
         if (4 == scale)
         {
@@ -48,14 +75,28 @@ abstract class RingBufferFields<E> extends RingBufferPad
         {
             throw new IllegalStateException("Unknown pointer size");
         }
+        // todo  做128字节填充
         BUFFER_PAD = 128 / scale;
         // Including the buffer pad in the array base offset
+        // todo 获取数组中首个实际可用元素的首地址，由于有填充，所以需要加上对应的填充长度
         REF_ARRAY_BASE = UNSAFE.arrayBaseOffset(Object[].class) + (BUFFER_PAD << REF_ELEMENT_SHIFT);
     }
 
+    /**
+     * 数组大小的掩码，使用位运算代替取余
+     */
     private final long indexMask;
+    /**
+     * 事件对象数组
+     */
     private final Object[] entries;
+    /**
+     * 缓存有效空间的大小，必须是整数洗mi
+     */
     protected final int bufferSize;
+    /**
+     * 序号生成器
+     */
     protected final Sequencer sequencer;
 
     RingBufferFields(
@@ -73,8 +114,9 @@ abstract class RingBufferFields<E> extends RingBufferPad
         {
             throw new IllegalArgumentException("bufferSize must be a power of 2");
         }
-
+        // 掩码
         this.indexMask = bufferSize - 1;
+        // 在数组的首尾额外创建两个填充大小的空间
         this.entries = new Object[sequencer.getBufferSize() + 2 * BUFFER_PAD];
         fill(eventFactory);
     }
@@ -83,6 +125,7 @@ abstract class RingBufferFields<E> extends RingBufferPad
     {
         for (int i = 0; i < bufferSize; i++)
         {
+            // i + 1为数据真正存放的位置
             entries[BUFFER_PAD + i] = eventFactory.newInstance();
         }
     }
@@ -220,6 +263,11 @@ public final class RingBuffer<E> extends RingBufferFields<E> implements Cursored
     }
 
     /**
+     * 获取指定Sequence对应的数据，
+     * 有两个用途
+     * 1. 用于生产者发布数据，生产者调用next()之后，获取事件对象，然后调用{@see #publish}发布数据
+     * 2. 用于消费者消费数据，当生产者调用{@link SequenceBarrier#waitFor(long)}之后
+     *    如果返回的sequence大于等于生产者期望的sequence,那么表示消费者可以消费这些sequence对应的数据
      * <p>Get the event for a given sequence in the RingBuffer.</p>
      *
      * <p>This call has 2 uses.  Firstly use this call when publishing to a ring buffer.
@@ -241,6 +289,11 @@ public final class RingBuffer<E> extends RingBufferFields<E> implements Cursored
     }
 
     /**
+     * 获取下一个数据的索引，空间不足会等待
+     * 申请空间后，必须使用{@link #publish(long)}发布，否则会导致整个数据结构不可用
+     *
+     * 会导致死锁
+     *
      * Increment and return the next sequence for the ring buffer.  Calls of this
      * method should ensure that they always publish the sequence afterward.  E.g.
      * <pre>
@@ -264,6 +317,7 @@ public final class RingBuffer<E> extends RingBufferFields<E> implements Cursored
     }
 
     /**
+     * 批量申请空间，会导致死锁
      * The same functionality as {@link RingBuffer#next()}, but allows the caller to claim
      * the next n sequences.
      *
@@ -304,6 +358,7 @@ public final class RingBuffer<E> extends RingBufferFields<E> implements Cursored
     }
 
     /**
+     * 批量申请空间，不会导致死锁
      * The same functionality as {@link RingBuffer#tryNext()}, but allows the caller to attempt
      * to claim the next n sequences.
      *
@@ -318,6 +373,7 @@ public final class RingBuffer<E> extends RingBufferFields<E> implements Cursored
     }
 
     /**
+     * 将生产者的游标移动到指定位置，可以在任何时间调用，存在竞争问题，不建议使用
      * Resets the cursor to a specific value.  This can be applied at any time, but it is worth noting
      * that it can cause a data race and should only be used in controlled circumstances.  E.g. during
      * initialisation.
@@ -396,6 +452,7 @@ public final class RingBuffer<E> extends RingBufferFields<E> implements Cursored
     }
 
     /**
+     * 创建一个屏障，协调生产者和消费者
      * Create a new SequenceBarrier to be used by an EventProcessor to track which messages
      * are available to be read from the ring buffer given a list of sequences to track.
      *
@@ -420,6 +477,7 @@ public final class RingBuffer<E> extends RingBufferFields<E> implements Cursored
     }
 
     /**
+     * 获取当前生产者的游标，依赖于Sequencer
      * Get the current cursor value for the ring buffer.  The actual value received
      * will depend on the type of {@link Sequencer} that is being used.
      *

@@ -58,6 +58,7 @@
 /* ------------------------- Buffer I/O implementation ----------------------- */
 
 /* Returns 1 or 0 for success/failure. */
+// 对于buffer操作是使用sds字符串实现
 static size_t rioBufferWrite(rio *r, const void *buf, size_t len) {
     r->io.buffer.ptr = sdscatlen(r->io.buffer.ptr,(char*)buf,len);
     r->io.buffer.pos += len;
@@ -85,6 +86,7 @@ static int rioBufferFlush(rio *r) {
     return 1; /* Nothing to do, our write just appends to the buffer. */
 }
 
+// rio buffer IO
 static const rio rioBufferIO = {
     rioBufferRead,
     rioBufferWrite,
@@ -107,6 +109,7 @@ void rioInitWithBuffer(rio *r, sds s) {
 /* --------------------- Stdio file pointer implementation ------------------- */
 
 /* Returns 1 or 0 for success/failure. */
+// 数据写入文件
 static size_t rioFileWrite(rio *r, const void *buf, size_t len) {
     size_t retval;
 
@@ -124,6 +127,7 @@ static size_t rioFileWrite(rio *r, const void *buf, size_t len) {
 }
 
 /* Returns 1 or 0 for success/failure. */
+// 从文件中读取数据到buf中
 static size_t rioFileRead(rio *r, void *buf, size_t len) {
     return fread(buf,len,1,r->io.file.fp);
 }
@@ -139,6 +143,7 @@ static int rioFileFlush(rio *r) {
     return (fflush(r->io.file.fp) == 0) ? 1 : 0;
 }
 
+// rio File IO
 static const rio rioFileIO = {
     rioFileRead,
     rioFileWrite,
@@ -164,7 +169,9 @@ void rioInitWithFile(rio *r, FILE *fp) {
  * the connection to the memory via rdbLoadRio(), thus this implementation
  * only implements reading from a connection that is, normally,
  * just a socket. */
+// 使用RIO实现从连接中读取RDB file到内存中，由于仅仅实现读操作
 
+// 不需要写操作
 static size_t rioConnWrite(rio *r, const void *buf, size_t len) {
     UNUSED(r);
     UNUSED(buf);

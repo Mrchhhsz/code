@@ -72,12 +72,16 @@ typedef struct aeApiState {
     int     pending_masks[MAX_EVENT_BATCHSZ];   /* pending fds' masks */
 } aeApiState;
 
+// 创建一个evport结构体
 static int aeApiCreate(aeEventLoop *eventLoop) {
     int i;
+    // 创建一个aeApiState结构体
     aeApiState *state = zmalloc(sizeof(aeApiState));
     if (!state) return -1;
 
+    // 创建一个port
     state->portfd = port_create();
+    // 创建失败，释放并返回
     if (state->portfd == -1) {
         zfree(state);
         return -1;
@@ -86,11 +90,13 @@ static int aeApiCreate(aeEventLoop *eventLoop) {
 
     state->npending = 0;
 
+    // 初始化fds数组和mask数组
     for (i = 0; i < MAX_EVENT_BATCHSZ; i++) {
         state->pending_fds[i] = -1;
         state->pending_masks[i] = AE_NONE;
     }
 
+    // 将结构体放入eventLoop
     eventLoop->apidata = state;
     return 0;
 }

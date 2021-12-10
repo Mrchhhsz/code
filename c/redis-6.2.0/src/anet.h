@@ -53,7 +53,9 @@
 #define FD_TO_PEER_NAME 0
 #define FD_TO_SOCK_NAME 1
 
+// 创建tcp连接
 int anetTcpConnect(char *err, const char *addr, int port);
+// 创建非阻塞tcp连接
 int anetTcpNonBlockConnect(char *err, const char *addr, int port);
 int anetTcpNonBlockBindConnect(char *err, const char *addr, int port, const char *source_addr);
 int anetTcpNonBlockBestEffortBindConnect(char *err, const char *addr, int port, const char *source_addr);
@@ -73,9 +75,12 @@ int anetCloexec(int fd);
 int anetEnableTcpNoDelay(char *err, int fd);
 int anetDisableTcpNoDelay(char *err, int fd);
 int anetTcpKeepAlive(char *err, int fd);
+// 设置发送超时
 int anetSendTimeout(char *err, int fd, long long ms);
+// 设置接收超时
 int anetRecvTimeout(char *err, int fd, long long ms);
 int anetFdToString(int fd, char *ip, size_t ip_len, int *port, int fd_to_str_type);
+// 设置keepalive
 int anetKeepAlive(char *err, int fd, int interval);
 int anetFormatAddr(char *fmt, size_t fmt_len, char *ip, int port);
 int anetFormatFdAddr(int fd, char *buf, size_t buf_len, int fd_to_str_type);

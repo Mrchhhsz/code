@@ -48,6 +48,7 @@
 
 /* Include the best multiplexing layer supported by this system.
  * The following should be ordered by performances, descending. */
+// 通过性能排序，优先选择性能更好的多路复用器 evport > epoll > kqueue > select
 #ifdef HAVE_EVPORT
 #include "ae_evport.c"
 #else
@@ -154,18 +155,30 @@ void aeStop(aeEventLoop *eventLoop) {
     eventLoop->stop = 1;
 }
 
+/**
+ * 创建一个文件事件
+ * @param eventLoop 事件循环器
+ * @param fd 文件描述符
+ * @param mask
+ * @param proc 回调函数，由外部提供
+ * @param clientData
+ * @return
+ */
 int aeCreateFileEvent(aeEventLoop *eventLoop, int fd, int mask,
         aeFileProc *proc, void *clientData)
 {
+    // 如果文件描述符大于等于事件循环器持有的最大文件描述符ID,报错，即eventloop中没有该文件事件
     if (fd >= eventLoop->setsize) {
         errno = ERANGE;
         return AE_ERR;
     }
+    // 获取对应的文件事件
     aeFileEvent *fe = &eventLoop->events[fd];
 
     if (aeApiAddEvent(eventLoop, fd, mask) == -1)
         return AE_ERR;
     fe->mask |= mask;
+    // 将文件处理的写回调和读回调都执行提供的回调函数
     if (mask & AE_READABLE) fe->rfileProc = proc;
     if (mask & AE_WRITABLE) fe->wfileProc = proc;
     fe->clientData = clientData;
@@ -196,6 +209,7 @@ void aeDeleteFileEvent(aeEventLoop *eventLoop, int fd, int mask)
     }
 }
 
+// 从eventLoop中更具fd去除对应的文件事件，返回其掩码
 int aeGetFileEvents(aeEventLoop *eventLoop, int fd) {
     if (fd >= eventLoop->setsize) return 0;
     aeFileEvent *fe = &eventLoop->events[fd];
@@ -484,6 +498,7 @@ int aeWait(int fd, int mask, long long milliseconds) {
 
 void aeMain(aeEventLoop *eventLoop) {
     eventLoop->stop = 0;
+    // 如果eventLoop中stop标志位不为1，就循环处理
     while (!eventLoop->stop) {
         // while循环处理所有的eventLoop事件
         aeProcessEvents(eventLoop, AE_ALL_EVENTS|

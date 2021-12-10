@@ -28,6 +28,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * redis 提供统一的IO操作接口，再rio.c中封装各种io的区别
+ * rio中分为四种IO操作
+ * 1. buffer (直接使用sds字符串)
+ * 2. FILE (文件的读写)
+ * 3. connection (目前只有RDB将rdb文件加载到内存使用了该种IO,只提供读操作)
+ * 4. fd (文件描述符)
+ */
 
 #ifndef __REDIS_RIO_H
 #define __REDIS_RIO_H
@@ -37,15 +45,20 @@
 #include "sds.h"
 #include "connection.h"
 
+// 读错误标志
 #define RIO_FLAG_READ_ERROR (1<<0)
+// 写错误标志
 #define RIO_FLAG_WRITE_ERROR (1<<1)
 
 struct _rio {
     /* Backend functions.
      * Since this functions do not tolerate short writes or reads the return
      * value is simplified to: zero on error, non zero on complete success. */
+    // 数据流读方法
     size_t (*read)(struct _rio *, void *buf, size_t len);
+    // 数据流的写方法
     size_t (*write)(struct _rio *, const void *buf, size_t len);
+    // 获取当前的读写偏移量
     off_t (*tell)(struct _rio *);
     int (*flush)(struct _rio *);
     /* The update_cksum method if not NULL is used to compute the checksum of
@@ -53,22 +66,29 @@ struct _rio {
      * designed so that can be called with the current checksum, and the buf
      * and len fields pointing to the new block of data to add to the checksum
      * computation. */
+    // 当读入新的数据块的时候，更新校验和
     void (*update_cksum)(struct _rio *, const void *buf, size_t len);
 
     /* The current checksum and flags (see RIO_FLAG_*) */
+    // 当前校验和
     uint64_t cksum, flags;
 
     /* number of bytes read or written */
+    // 当前读取的或写入的字节大小
     size_t processed_bytes;
 
     /* maximum single read or write chunk size */
+    // 最大的单次读写的大小
     size_t max_processing_chunk;
 
     /* Backend-specific vars. */
     union {
         /* In-memory buffer target. */
+        // buffer 结构体
         struct {
+            // 具体内容
             sds ptr;
+            // 偏移量
             off_t pos;
         } buffer;
         /* Stdio file pointer target. */
@@ -78,6 +98,7 @@ struct _rio {
             off_t autosync; /* fsync after 'autosync' bytes written. */
         } file;
         /* Connection object (used to read from socket) */
+        // socket连接
         struct {
             connection *conn;   /* Connection */
             off_t pos;    /* pos in buf that was returned */
@@ -99,31 +120,42 @@ typedef struct _rio rio;
 /* The following functions are our interface with the stream. They'll call the
  * actual implementation of read / write / tell, and will update the checksum
  * if needed. */
-
+// 抽取写操作需要做的公共操作
 static inline size_t rioWrite(rio *r, const void *buf, size_t len) {
+    // 如果存在写错误标志，直接返回
     if (r->flags & RIO_FLAG_WRITE_ERROR) return 0;
     while (len) {
+        // 判断当前操作字节长度是否超过最大长度
         size_t bytes_to_write = (r->max_processing_chunk && r->max_processing_chunk < len) ? r->max_processing_chunk : len;
+        // 更新校验和
         if (r->update_cksum) r->update_cksum(r,buf,bytes_to_write);
+        // 调用具体实现的write方法
         if (r->write(r,buf,bytes_to_write) == 0) {
+            // 如果发生错误，设置不可再写
             r->flags |= RIO_FLAG_WRITE_ERROR;
             return 0;
         }
+        // buf增加
         buf = (char*)buf + bytes_to_write;
+        // 可用长度减少
         len -= bytes_to_write;
         r->processed_bytes += bytes_to_write;
     }
     return 1;
 }
 
+// rio读操作
 static inline size_t rioRead(rio *r, void *buf, size_t len) {
+    // 检错
     if (r->flags & RIO_FLAG_READ_ERROR) return 0;
     while (len) {
+        // 获取读字节
         size_t bytes_to_read = (r->max_processing_chunk && r->max_processing_chunk < len) ? r->max_processing_chunk : len;
         if (r->read(r,buf,bytes_to_read) == 0) {
             r->flags |= RIO_FLAG_READ_ERROR;
             return 0;
         }
+        //  更新校验和
         if (r->update_cksum) r->update_cksum(r,buf,bytes_to_read);
         buf = (char*)buf + bytes_to_read;
         len -= bytes_to_read;
@@ -155,7 +187,6 @@ static inline int rioGetWriteError(rio *r) {
 static inline void rioClearErrors(rio *r) {
     r->flags &= ~(RIO_FLAG_READ_ERROR|RIO_FLAG_WRITE_ERROR);
 }
-
 void rioInitWithFile(rio *r, FILE *fp);
 void rioInitWithBuffer(rio *r, sds s);
 void rioInitWithConn(rio *r, connection *conn, size_t read_limit);

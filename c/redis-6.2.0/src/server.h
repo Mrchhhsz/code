@@ -646,22 +646,23 @@ typedef struct RedisModuleDigest {
 /* Objects encoding. Some kind of objects like Strings and Hashes can be
  * internally represented in multiple ways. The 'encoding' field of the object
  * is set to one of this fields for this object. */
-#define OBJ_ENCODING_RAW 0     /* Raw representation */
-#define OBJ_ENCODING_INT 1     /* Encoded as integer */
-#define OBJ_ENCODING_HT 2      /* Encoded as hash table */
+#define OBJ_ENCODING_RAW 0     /* Raw representation raw 编码 */
+#define OBJ_ENCODING_INT 1     /* Encoded as integer int类型编码 */
+#define OBJ_ENCODING_HT 2      /* Encoded as hash table hash表 */
 #define OBJ_ENCODING_ZIPMAP 3  /* Encoded as zipmap */
 #define OBJ_ENCODING_LINKEDLIST 4 /* No longer used: old list encoding. */
-#define OBJ_ENCODING_ZIPLIST 5 /* Encoded as ziplist */
+#define OBJ_ENCODING_ZIPLIST 5 /* Encoded as ziplist 压缩列表 */
 #define OBJ_ENCODING_INTSET 6  /* Encoded as intset */
-#define OBJ_ENCODING_SKIPLIST 7  /* Encoded as skiplist */
+#define OBJ_ENCODING_SKIPLIST 7  /* Encoded as skiplist 跳跃表 */
 #define OBJ_ENCODING_EMBSTR 8  /* Embedded sds string encoding */
-#define OBJ_ENCODING_QUICKLIST 9 /* Encoded as linked list of ziplists */
+#define OBJ_ENCODING_QUICKLIST 9 /* Encoded as linked list of ziplists 快速列表 */
 #define OBJ_ENCODING_STREAM 10 /* Encoded as a radix tree of listpacks */
 
 #define LRU_BITS 24
 #define LRU_CLOCK_MAX ((1<<LRU_BITS)-1) /* Max value of obj->lru */
 #define LRU_CLOCK_RESOLUTION 1000 /* LRU clock resolution in ms */
 
+// 共享对象，不会被销毁，将对象的refcount设置为该值
 #define OBJ_SHARED_REFCOUNT INT_MAX     /* Global object never destroyed. */
 #define OBJ_STATIC_REFCOUNT (INT_MAX-1) /* Object allocated in the stack. */
 #define OBJ_FIRST_SPECIAL_REFCOUNT OBJ_STATIC_REFCOUNT
@@ -1356,8 +1357,10 @@ struct redisServer {
     int protected_mode;         /* Don't accept external connections. */
     int gopher_enabled;         /* If true the server will reply to gopher
                                    queries. Will still serve RESP2 queries. */
+    // IO线程数量
     int io_threads_num;         /* Number of IO threads to use. */
     int io_threads_do_reads;    /* Read and parse from IO threads? */
+    // 是否开启IO多线程
     int io_threads_active;      /* Is IO threads currently active? */
     long long events_processed_while_blocked; /* processEventsWhileBlocked() */
 
@@ -2456,16 +2459,24 @@ int rewriteConfig(char *path, int force_all);
 void initConfigValues();
 
 /* db.c -- Keyspace access API */
+// todo 移除过期
 int removeExpire(redisDb *db, robj *key);
 void propagateExpire(redisDb *db, robj *key, int lazy);
 int expireIfNeeded(redisDb *db, robj *key);
+// todo 获取某个key的过期时间
 long long getExpire(redisDb *db, robj *key);
+// todo 设置key的过期时间
 void setExpire(client *c, redisDb *db, robj *key, long long when);
 int checkAlreadyExpired(long long when);
+// todo 从db种获取key代表的值
 robj *lookupKey(redisDb *db, robj *key, int flags);
+// todo 寻找某个key的值，多了过期检查
 robj *lookupKeyRead(redisDb *db, robj *key);
+// todo 与lookupkeyRead一样，少了命中刷的统计
 robj *lookupKeyWrite(redisDb *db, robj *key);
+// todo 有回复的读操作
 robj *lookupKeyReadOrReply(client *c, robj *key, robj *reply);
+// todo 有回复的写操作
 robj *lookupKeyWriteOrReply(client *c, robj *key, robj *reply);
 robj *lookupKeyReadWithFlags(redisDb *db, robj *key, int flags);
 robj *lookupKeyWriteWithFlags(redisDb *db, robj *key, int flags);
@@ -2476,14 +2487,20 @@ int objectSetLRUOrLFU(robj *val, long long lfu_freq, long long lru_idle,
 #define LOOKUP_NONE 0
 #define LOOKUP_NOTOUCH (1<<0)
 #define LOOKUP_NONOTIFY (1<<1)
+// todo 在内存数据库中添加值，如果key已经存在，则操作无效
 void dbAdd(redisDb *db, robj *key, robj *val);
 int dbAddRDBLoad(redisDb *db, sds key, robj *val);
+// todo db Key value 覆盖操作，如果不存在key,则操作无效
 void dbOverwrite(redisDb *db, robj *key, robj *val);
 void genericSetKey(client *c, redisDb *db, robj *key, robj *val, int keepttl, int signal);
+// todo 设置操作，不存在key添加，存在就覆盖
 void setKey(client *c, redisDb *db, robj *key, robj *val);
+// todo 随机返回没有过期的key
 robj *dbRandomKey(redisDb *db);
 int dbSyncDelete(redisDb *db, robj *key);
+// todo 删除key
 int dbDelete(redisDb *db, robj *key);
+// todo 解除key的共享，之后就可以进行修改操作
 robj *dbUnshareStringValue(redisDb *db, robj *key, robj *o);
 
 #define EMPTYDB_NO_FLAGS 0      /* No flags. */

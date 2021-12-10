@@ -35,6 +35,7 @@
 #include <ctype.h>
 
 /* Database backup. */
+// 数据库备份结构体
 struct dbBackup {
     redisDb *dbarray;
     rax *slots_to_keys;
@@ -60,14 +61,18 @@ void updateLFU(robj *val) {
  * implementations that should instead rely on lookupKeyRead(),
  * lookupKeyWrite() and lookupKeyReadWithFlags(). */
 robj *lookupKey(redisDb *db, robj *key, int flags) {
+    // db使用dict数据结构存储，根据key获取dict中的一个元素
     dictEntry *de = dictFind(db->dict,key->ptr);
+    // 如果元素存在
     if (de) {
+        // 获取val
         robj *val = dictGetVal(de);
 
         /* Update the access time for the ageing algorithm.
          * Don't do it if we have a saving child, as this will trigger
          * a copy on write madness. */
         if (!hasActiveChildProcess() && !(flags & LOOKUP_NOTOUCH)){
+            // 根据存储策略更行对应的计量属性
             if (server.maxmemory_policy & MAXMEMORY_FLAG_LFU) {
                 updateLFU(val);
             } else {
@@ -76,6 +81,7 @@ robj *lookupKey(redisDb *db, robj *key, int flags) {
         }
         return val;
     } else {
+        // 不存在返回NULL
         return NULL;
     }
 }
